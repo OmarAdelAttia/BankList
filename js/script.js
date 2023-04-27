@@ -7,7 +7,7 @@ import * as method from "./functions.js";
 
 method.createUsernames(data.accounts);
 
-let currentAcc;
+let currentAcc, timer;
 
 // Event handlers
 el.btnLogin.addEventListener('click', function (e) {
@@ -16,7 +16,7 @@ el.btnLogin.addEventListener('click', function (e) {
 
   currentAcc = data.accounts.find(acc => acc.userName === el.inputLoginUsername.value);
 
-  if (currentAcc?.pin === Number(el.inputLoginPin.value)) {
+  if (currentAcc?.pin === +el.inputLoginPin.value) {
     // reset input fields
     method.resetField(el.inputLoginPin);
     method.resetField(el.inputLoginUsername);
@@ -24,6 +24,26 @@ el.btnLogin.addEventListener('click', function (e) {
     // display UI & message
     el.labelWelcome.textContent = `Welcome back ${currentAcc.owner.split(' ')[0]}`;
     el.containerApp.style.opacity = 100;
+
+    const now = new Date();
+    const locale = navigator.language;
+    const option = {
+      year: 'numeric',
+      month: 'long',
+      weekday: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    };
+    // set the date format to the object
+    el.labelDate.textContent = new Intl.DateTimeFormat(
+      currentAcc.locale,
+      option
+    ).format(now);
+
+    if (timer) clearInterval(timer);
+    // logout function
+    timer = method.startLogOutTimer();
 
     // Update UI
     method.updateUI(currentAcc);
@@ -36,7 +56,7 @@ el.btnLogin.addEventListener('click', function (e) {
 el.btnTransfer.addEventListener('click', function (e) {
   e.preventDefault();
 
-  const amount = Number(el.inputTransferAmount.value);
+  const amount = +el.inputTransferAmount.value;
   const recieveAcc = data.accounts.find(
     acc => acc.userName === el.inputTransferTo.value
   );
@@ -51,14 +71,24 @@ el.btnTransfer.addEventListener('click', function (e) {
     recieveAcc &&
     recieveAcc?.userName !== currentAcc.userName
   ) {
-    // Adding negative movement to current user
-    currentAcc.movements.push(-amount);
+    setTimeout(() => {
+      // Adding negative movement to current user
+      currentAcc.movements.push(-amount);
 
-    // Adding positive movement to recipient
-    recieveAcc.movements.push(amount);
+      // Adding positive movement to recipient
+      recieveAcc.movements.push(amount);
 
-    // Update UI
-    method.updateUI(currentAcc);
+      // Add transfer Date
+      currentAcc.movementsDates.push(new Date().toISOString());
+      recieveAcc.movementsDates.push(new Date().toISOString());
+
+      // Update UI
+      method.updateUI(currentAcc);
+
+      // reset timer
+      clearInterval(timer);
+      timer = startLogOutTimer();
+    }, 2500);
   } else {
     // error msg the amount is out if the limit
   }
@@ -87,13 +117,20 @@ el.btnClose.addEventListener('click', function (e) {
 el.btnLoan.addEventListener('click', function (e) {
   e.preventDefault();
 
-  const amount = Number(el.inputLoanAmount.value);
+  const amount = Math.floor(el.inputLoanAmount.value);
 
   if (amount > 0 && currentAcc.movements.some(mov => mov >= amount * 0.1)) {
-    // add movement
-    currentAcc.movements.push(amount);
-    // Update UI
-    method.updateUI(currentAcc);
+    setTimeout(() => {
+      // add movement
+      currentAcc.movements.push(amount);
+      // Add loan Date
+      currentAcc.movementsDates.push(new Date().toISOString());
+      // Update UI
+      method.updateUI(currentAcc);
+      // reset timer
+      clearInterval(timer);
+      timer = method.startLogOutTimer();
+    }, 5000);
   } else {
     // display Error msg
   }
@@ -106,6 +143,6 @@ let sorted = false;
 
 el.btnSort.addEventListener('click', function (e) {
   e.preventDefault();
-  method.displayMovements(currentAcc.movements, !sorted);
+  method.displayMovements(currentAcc, !sorted);
   sorted = !sorted;
 });
